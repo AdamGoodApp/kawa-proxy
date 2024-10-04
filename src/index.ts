@@ -1,9 +1,7 @@
-// index.js
 import express from 'express';
 import fetch from 'node-fetch';
 import cors from 'cors';
 import { parse, stringify, types } from 'hls-parser';
-import { URL } from 'url';
 
 const app = express();
 const PORT = process.env.PORT || 3008;
@@ -15,7 +13,7 @@ const ORIGINAL_REFERER = 'https://www.braflix.gd/';
 const ORIGINAL_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36';
 
-function isValidUrl(targetUrl) {
+function isValidUrl(targetUrl: string) {
   try {
     const parsedUrl = new URL(targetUrl);
     return parsedUrl.hostname === ORIGINAL_DOMAIN;
@@ -24,8 +22,8 @@ function isValidUrl(targetUrl) {
   }
 }
 
-app.get('/proxy', async (req, res) => {
-  const m3u8Url = req.query.url;
+app.get('/', async (req, res) => {
+  const m3u8Url = String(req.query.url);
 
   if (!m3u8Url) {
     res.status(400).send('Missing url parameter');
@@ -64,7 +62,7 @@ app.get('/proxy', async (req, res) => {
     const playlist = parse(playlistText);
 
     // Modify the playlist to route .ts segments through the proxy
-    if (playlist.segments && playlist.segments.length > 0) {
+    if ('segments' in playlist && playlist.segments.length > 0) {
       playlist.segments.forEach((segment) => {
         // Resolve the absolute URL for each segment
         const segmentUrl = new URL(segment.uri, m3u8Url).toString();
@@ -73,8 +71,12 @@ app.get('/proxy', async (req, res) => {
       });
     }
 
-    // Similarly, handle encryption keys if present
-    if (playlist.keys && playlist.keys.length > 0) {
+    // Define a type guard to check if playlist has keys
+    function hasKeys(playlist: any): playlist is { keys: any[] } {
+      return 'keys' in playlist;
+    }
+
+    if (hasKeys(playlist) && playlist.keys.length > 0) {
       playlist.keys.forEach((key) => {
         if (key.uri) {
           const keyUrl = new URL(key.uri, m3u8Url).toString();
@@ -84,7 +86,7 @@ app.get('/proxy', async (req, res) => {
     }
 
     // Serialize the modified playlist back to m3u8 format
-    const modifiedPlaylist = stringify(playlist, types.MASTER_PLAYLIST);
+    const modifiedPlaylist = stringify(playlist);
 
     // Set appropriate headers for the client
     res.set({
@@ -102,6 +104,13 @@ app.get('/proxy', async (req, res) => {
 // Route to proxy the .ts segments
 app.get('/proxy-ts', async (req, res) => {
   const tsUrl = req.query.url;
+
+  if (typeof tsUrl === 'string' && isValidUrl(tsUrl)) {
+    // Proceed with valid URL
+  } else {
+    res.status(403).send('Forbidden');
+    return;
+  }
 
   if (!tsUrl) {
     res.status(400).send('Missing url parameter');
@@ -140,7 +149,12 @@ app.get('/proxy-ts', async (req, res) => {
     });
 
     // Stream the response directly to the client
-    response.body.pipe(res);
+    if (response.body) {
+      response.body.pipe(res);
+    } else {
+      console.error('Response body is null');
+      res.status(500).send('Internal Server Error');
+    }
   } catch (error) {
     console.error('Error fetching .ts segment:', error);
     res.status(500).send('Internal Server Error');
@@ -149,13 +163,13 @@ app.get('/proxy-ts', async (req, res) => {
 
 // Route to proxy encryption keys (if present)
 app.get('/proxy-key', async (req, res) => {
-  const keyUrl = req.query.url;
+  const keyUrl = req.query.keyUrl;
 
-  if (!keyUrl) {
-    res.status(400).send('Missing url parameter');
+  if (typeof keyUrl !== 'string') {
+    res.status(400).send('Invalid URL');
     return;
   }
-
+  
   if (!isValidUrl(keyUrl)) {
     res.status(403).send('Forbidden');
     return;
@@ -188,7 +202,12 @@ app.get('/proxy-key', async (req, res) => {
     });
 
     // Stream the key directly to the client
-    response.body.pipe(res);
+    if (response.body) {
+      response.body.pipe(res);
+    } else {
+      console.error('Response body is null');
+      res.status(500).send('Internal Server Error');
+    }
   } catch (error) {
     console.error('Error fetching encryption key:', error);
     res.status(500).send('Internal Server Error');
