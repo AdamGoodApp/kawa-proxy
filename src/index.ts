@@ -1,17 +1,19 @@
 import express from 'express';
 import fetch from 'node-fetch';
 import cors from 'cors';
-import { parse, stringify, types } from 'hls-parser';
+import dotenv from 'dotenv';
+import { parse, stringify } from 'hls-parser';
 
 const app = express();
-const PORT = process.env.PORT || 3008;
+const PORT = process.env.PORT || 3000;
+
+dotenv.config();
 
 app.use(cors());
 
-const ORIGINAL_DOMAIN = 'romeo.ilovephones.site';
-const ORIGINAL_REFERER = 'https://www.braflix.gd/';
-const ORIGINAL_USER_AGENT =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36';
+const ORIGINAL_DOMAIN = process.env.ORIGINAL_DOMAIN || '';
+const ORIGINAL_REFERER = process.env.ORIGINAL_REFERER || '';
+const ORIGINAL_USER_AGENT = process.env.ORIGINAL_USER_AGENT || '';
 
 function isValidUrl(targetUrl: string) {
   try {
