@@ -218,3 +218,5 @@ app.get('/proxy-key', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Proxy server is running on port ${PORT}`);
 });
+
+export default app;
