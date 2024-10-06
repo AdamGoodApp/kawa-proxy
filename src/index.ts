@@ -18,7 +18,7 @@ const ORIGINAL_USER_AGENT = process.env.ORIGINAL_USER_AGENT || '';
 function isValidUrl(targetUrl: string) {
   try {
     const parsedUrl = new URL(targetUrl);
-    return parsedUrl.hostname === ORIGINAL_DOMAIN;
+    return parsedUrl.hostname.includes('romeo');
   } catch (e) {
     return false;
   }
